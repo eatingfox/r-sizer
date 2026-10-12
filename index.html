@@ -1,0 +1,172 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="1R 계산기"><meta name="theme-color" content="#0f7a5c"><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22%3E%3Crect width=%2264%22 height=%2264%22 rx=%2214%22 fill=%22%230f7a5c%22/%3E%3Ctext x=%2232%22 y=%2243%22 font-size=%2228%22 font-family=%22Arial%22 font-weight=%22700%22 fill=%22white%22 text-anchor=%22middle%22%3E1R%3C/text%3E%3C/svg%3E"></head><body>
+<title>1R 수량 계산기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: 한 손 조작용 단일 컬럼 — 입력(진입·손절) → 큰 결과 숫자 → 목표가 표 → 설정 */
+:root{
+  --bg:#f3f5f4; --surface:#ffffff; --ink:#15201c; --muted:#5d6b66; --line:#d5ddd9;
+  --accent:#0f7a5c; --accent-soft:#e1f1ea; --warn:#a15c00; --warn-soft:#fbefd9; --bad:#b3261e; --bad-soft:#fbe4e2;
+  --f-body:"IBM Plex Sans KR",system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --f-num:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0f1513; --surface:#18211e; --ink:#e6eeea; --muted:#93a39d; --line:#2b3733;
+    --accent:#4cc79d; --accent-soft:#163229; --warn:#e8a54b; --warn-soft:#33261a; --bad:#f08a80; --bad-soft:#3a1d1b;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0f1513; --surface:#18211e; --ink:#e6eeea; --muted:#93a39d; --line:#2b3733;
+  --accent:#4cc79d; --accent-soft:#163229; --warn:#e8a54b; --warn-soft:#33261a; --bad:#f08a80; --bad-soft:#3a1d1b;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5;padding:16px}
+.wrap{max-width:440px;margin:0 auto;display:grid;gap:14px;padding-block:8px 32px}
+h1{font-size:18px;margin:0;font-weight:700;letter-spacing:-.01em}
+.sub{color:var(--muted);font-size:13px;margin:2px 0 0}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+label{display:grid;gap:4px;font-size:12px;color:var(--muted);letter-spacing:.02em}
+input[type=text]{font-family:var(--f-num);font-size:24px;font-weight:600;width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font-variant-numeric:tabular-nums}
+input[type=text]:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent}
+.small input[type=text]{font-size:17px;padding:8px 10px}
+.result{display:grid;gap:10px}
+.big{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.big .n{font-family:var(--f-num);font-size:52px;font-weight:600;line-height:1;color:var(--accent);font-variant-numeric:tabular-nums}
+.big .u{font-size:16px;color:var(--muted)}
+.kv{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.kv div{display:grid;gap:2px}
+.kv span{font-size:11px;color:var(--muted);letter-spacing:.03em}
+.kv b{font-family:var(--f-num);font-size:17px;font-weight:600;font-variant-numeric:tabular-nums}
+.note{font-size:13px;border-radius:8px;padding:8px 10px;display:none}
+.note.show{display:block}
+.note.warn{background:var(--warn-soft);color:var(--warn)}
+.note.bad{background:var(--bad-soft);color:var(--bad)}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th,td{text-align:right;padding:6px 4px;border-bottom:1px solid var(--line);font-size:14px}
+th{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.03em}
+td{font-family:var(--f-num)}
+th:first-child,td:first-child{text-align:left}
+.toggle{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--ink);cursor:pointer}
+.toggle input{width:20px;height:20px;accent-color:var(--accent)}
+h2{font-size:13px;margin:0 0 8px;color:var(--muted);font-weight:600;letter-spacing:.03em}
+.foot{font-size:12px;color:var(--muted)}
+button{font:inherit;font-size:13px;padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+button:focus-visible{outline:2px solid var(--accent)}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>1R 수량 계산기</h1>
+    <p class="sub">진입가와 손절가만 넣으면 됩니다. 손절 시 잃는 금액이 매번 같아지도록 수량을 계산합니다.</p>
+  </header>
+
+  <section class="panel">
+    <div class="row">
+      <label for="entry">진입가
+        <input type="text" id="entry" inputmode="decimal" autocomplete="off" value="3.03">
+      </label>
+      <label for="stop">손절가
+        <input type="text" id="stop" inputmode="decimal" autocomplete="off" value="2.90">
+      </label>
+    </div>
+    <div style="margin-top:12px">
+      <label class="toggle" for="fast"><input type="checkbox" id="fast"> 빠른 종목 / LULD 잦음 → 1R 절반</label>
+    </div>
+  </section>
+
+  <section class="panel result" aria-live="polite">
+    <div class="big"><span class="n" id="shares">–</span><span class="u">주 매수</span></div>
+    <div class="kv">
+      <div><span>매수 금액</span><b id="notional">–</b></div>
+      <div><span>손절 폭</span><b id="stoppct">–</b></div>
+      <div><span>손절 시 손실</span><b id="loss">–</b></div>
+    </div>
+    <div class="note warn" id="capnote"></div>
+    <div class="note bad" id="errnote"></div>
+    <div class="note warn" id="tightnote"></div>
+  </section>
+
+  <section class="panel">
+    <h2>목표가 (비용 차감 후 손익)</h2>
+    <table>
+      <thead><tr><th>목표</th><th>가격</th><th>수익률</th><th>손익</th></tr></thead>
+      <tbody id="targets"></tbody>
+    </table>
+  </section>
+
+  <section class="panel small">
+    <h2>설정 (이 기기에 저장)</h2>
+    <div class="row">
+      <label for="risk">1R 금액 ($)
+        <input type="text" id="risk" inputmode="decimal" value="10">
+      </label>
+      <label for="cap">한 거래 최대 금액 ($)
+        <input type="text" id="cap" inputmode="decimal" value="300">
+      </label>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <label for="cost">왕복 비용 (%)
+        <input type="text" id="cost" inputmode="decimal" value="0.5">
+      </label>
+      <label for="minpct">손절 폭 경고 기준 (%)
+        <input type="text" id="minpct" inputmode="decimal" value="2">
+      </label>
+    </div>
+  </section>
+
+  <p class="foot">수량 = 1R ÷ (진입가 − 손절가), 최대 금액을 넘으면 그 금액까지만 삽니다. 빠른 종목(LULD 정지가 잦은 종목)은 손절이 손절가보다 아래에서 체결될 수 있습니다. 화면의 값은 예시입니다.</p>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const KEYS = ["risk","cap","cost","minpct"];
+try { KEYS.forEach(k => { const v = localStorage.getItem("rsz_"+k); if (v !== null) $(k).value = v; }); } catch(e) {}
+const num = id => parseFloat(String($(id).value).replace(/,/g,""));
+const usd = x => (x<0?"−$":"$") + Math.abs(x).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+const px = x => x >= 1 ? x.toFixed(2) : x.toFixed(4);
+
+function calc(){
+  const e = num("entry"), s = num("stop"), cost = (num("cost")||0)/100/2;
+  let risk = num("risk"), cap = num("cap"), minpct = num("minpct");
+  if ($("fast").checked) risk = risk/2;
+  const err = $("errnote"), capn = $("capnote"), tight = $("tightnote");
+  [err,capn,tight].forEach(n => n.classList.remove("show"));
+  const tb = $("targets"); tb.innerHTML = "";
+  if (!(e>0) || !(s>0) || !(risk>0)) { $("shares").textContent="–"; ["notional","stoppct","loss"].forEach(i=>$(i).textContent="–"); return; }
+  if (s >= e) { err.textContent = "손절가가 진입가보다 높거나 같습니다. 매수 기준이라 손절가는 진입가보다 낮아야 합니다."; err.classList.add("show");
+    $("shares").textContent="–"; ["notional","stoppct","loss"].forEach(i=>$(i).textContent="–"); return; }
+  const d = e - s, pct = d/e*100;
+  let q = Math.floor(risk / d);
+  if (cap>0 && q*e > cap) {
+    q = Math.floor(cap / e);
+    capn.textContent = `최대 금액 $${cap}에 걸려 ${q}주로 줄였습니다. 이때 실제 1R은 ${usd(q*d)}입니다.`;
+    capn.classList.add("show");
+  }
+  if (q < 1) { err.textContent = "1주도 살 수 없습니다. 1R 금액을 늘리거나 손절 폭을 확인하세요."; err.classList.add("show"); }
+  if (pct < minpct) { tight.textContent = `손절 폭 ${pct.toFixed(1)}%는 좁습니다. 이 종목 1분봉 평균 변동폭보다 좁으면 노이즈에 걸립니다.`; tight.classList.add("show"); }
+  const lossAtStop = (s*(1-cost) - e*(1+cost))*q;
+  $("shares").textContent = q.toLocaleString();
+  $("notional").textContent = usd(q*e);
+  $("stoppct").textContent = pct.toFixed(1)+"%";
+  $("loss").textContent = usd(lossAtStop);
+  [["손절",-1],["1R",1],["1.5R",1.5],["2R",2],["3R",3]].forEach(([lab,m]) => {
+    const t = e + d*m, pnl = (t*(1-cost) - e*(1+cost))*q, r = (t/e-1)*100;
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${lab}</td><td>${px(t)}</td><td>${r>=0?"+":""}${r.toFixed(1)}%</td><td>${usd(pnl)}</td>`;
+    tb.appendChild(tr);
+  });
+}
+document.querySelectorAll("input").forEach(i => i.addEventListener("input", () => {
+  if (KEYS.includes(i.id)) { try { localStorage.setItem("rsz_"+i.id, i.value); } catch(e) {} }
+  calc();
+}));
+document.querySelectorAll("input[type=text]").forEach(i => i.addEventListener("focus", () => i.select()));
+calc();
+</script>
+
+</body></html>
